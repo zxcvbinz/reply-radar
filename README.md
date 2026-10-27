@@ -2,7 +2,7 @@
   <img src="Resources/icon/icon-1024.png" width="128" alt="App icon">
 </p>
 
-<h1 align="center">WhatsApp Bridge</h1>
+<h1 align="center">Reply Radar</h1>
 
 <p align="center">
   <b>See how you reply on WhatsApp, and stop leaving people waiting.</b><br>
@@ -29,7 +29,7 @@ WhatsApp tells you who wrote to you. It never tells you **how you're doing**:
 how long people wait for your answers, who you keep forgetting, how much you write at night,
 or which conversations are still open.
 
-WhatsApp Bridge answers those questions from the database WhatsApp Desktop already keeps on your Mac.
+Reply Radar answers those questions from the database WhatsApp Desktop already keeps on your Mac.
 It doesn't connect to WhatsApp, doesn't add a linked device and can't send anything.
 
 ## Features
@@ -72,7 +72,7 @@ A sortable table of everyone who wrote in the period or is still waiting for you
 
 ### Claude Code integration (MCP)
 
-A separate executable, `whatsapp-local-mcp`, is bundled in the app and speaks [MCP](https://modelcontextprotocol.io) over stdio.
+A separate executable, `reply-radar-mcp`, is bundled in the app and speaks [MCP](https://modelcontextprotocol.io) over stdio.
 
 | Tool | Description |
 |---|---|
@@ -113,12 +113,12 @@ Privacy is the reason the app exists, so these are hard rules:
 
 ### Download
 
-Get the latest `WhatsApp-Bridge-x.y.z.zip` from [Releases](https://github.com/zxcvbinz/whatsapp-bridge/releases). It's a universal build for Apple Silicon and Intel. Unzip it and move the app to Applications.
+Get the latest `Reply-Radar-x.y.z.zip` from [Releases](https://github.com/zxcvbinz/reply-radar/releases). It's a universal build for Apple Silicon and Intel. Unzip it and move the app to Applications.
 
 Builds that aren't notarized are blocked by Gatekeeper the first time you open them. Allow the app once with:
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/WhatsApp Bridge.app"
+xattr -dr com.apple.quarantine "/Applications/Reply Radar.app"
 ```
 
 You can also open it and then confirm in *System Settings › Privacy & Security › Open Anyway*. Each release notes says whether that build is notarized.
@@ -126,10 +126,10 @@ You can also open it and then confirm in *System Settings › Privacy & Security
 ### Build from source
 
 ```bash
-git clone https://github.com/zxcvbinz/whatsapp-bridge.git
-cd whatsapp-bridge
+git clone https://github.com/zxcvbinz/reply-radar.git
+cd reply-radar
 INSTALL=1 ./scripts/build-app.sh      # builds, signs and copies to ~/Applications
-open ~/Applications/"WhatsApp Bridge.app"
+open ~/Applications/"Reply Radar.app"
 ```
 
 `build-app.sh` signs with your first *Apple Development* certificate if you have one, otherwise ad-hoc.
@@ -156,8 +156,8 @@ A three-step guided setup:
 *Settings › Claude Code* has a *Copy* button for this command, already filled in with the right path:
 
 ```bash
-claude mcp add --scope user --transport stdio whatsapp-local -- \
-  "/Applications/WhatsApp Bridge.app/Contents/MacOS/whatsapp-local-mcp"
+claude mcp add --scope user --transport stdio reply-radar -- \
+  "/Applications/Reply Radar.app/Contents/MacOS/reply-radar-mcp"
 ```
 
 Claude Code starts the server itself; the app doesn't need to be open.
@@ -174,7 +174,7 @@ Open *Settings* (`⌘,`) to:
 - restore dismissed chats
 - rerun the guided setup
 
-Settings are stored in `~/Library/Application Support/WhatsAppBridge/settings.json` (readable only by your user), shared by the app and the MCP server. Changes apply immediately.
+Settings are stored in `~/Library/Application Support/ReplyRadar/settings.json` (readable only by your user), shared by the app and the MCP server. Changes apply immediately.
 
 ## How it works
 
@@ -182,7 +182,7 @@ Settings are stored in `~/Library/Application Support/WhatsAppBridge/settings.js
 WhatsApp Desktop ──writes──▶ ChatStorage.sqlite (+ WAL)
                                    │ read-only
                     ┌──────────────┴──────────────┐
-              WhatsApp Bridge.app          whatsapp-local-mcp ◀──stdio── Claude Code
+              Reply Radar.app          reply-radar-mcp ◀──stdio── Claude Code
               (SwiftUI dashboard)          (MCP server)
                     └────────── ChatCore ─────────┘
 ```
@@ -190,8 +190,8 @@ WhatsApp Desktop ──writes──▶ ChatStorage.sqlite (+ WAL)
 | Target | Role |
 |---|---|
 | `ChatCore` | Database discovery, read-only access via [GRDB](https://github.com/groue/GRDB.swift), queries, statistics, shared settings |
-| `whatsapp-local-mcp` | Minimal MCP server (JSON-RPC over stdio), no SDK dependency |
-| `WhatsAppBridge` | SwiftUI app: guided setup, dashboard, contact detail, settings |
+| `reply-radar-mcp` | Minimal MCP server (JSON-RPC over stdio), no SDK dependency |
+| `ReplyRadar` | SwiftUI app: guided setup, dashboard, contact detail, settings |
 
 Notes on WhatsApp's database (Core Data on SQLite):
 
@@ -204,7 +204,7 @@ Notes on WhatsApp's database (Core Data on SQLite):
 ### Checking from the terminal
 
 ```bash
-"$HOME/Applications/WhatsApp Bridge.app/Contents/MacOS/WhatsAppBridge" --check
+"$HOME/Applications/Reply Radar.app/Contents/MacOS/ReplyRadar" --check
 ```
 
 This prints only counts and dates, never message content.
@@ -232,7 +232,7 @@ Issues and pull requests are welcome. Please never attach real message content, 
 
 ```bash
 swift build                       # build everything
-swift run whatsapp-local-mcp      # run the MCP server on stdio
+swift run reply-radar-mcp      # run the MCP server on stdio
 swift scripts/make-icon.swift && scripts/make-icns.sh   # regenerate the icon
 ```
 

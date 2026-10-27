@@ -2,18 +2,18 @@ import ChatCore
 import SwiftUI
 
 @main
-struct WhatsAppBridgeApp: App {
+struct ReplyRadarApp: App {
     @State private var model = AppModel()
 
     init() {
-        // `WhatsAppBridge --check`: verifica da terminale senza finestra. Stampa solo conteggi e date, mai messaggi.
+        // `ReplyRadar --check`: verifica da terminale senza finestra. Stampa solo conteggi e date, mai messaggi.
         if CommandLine.arguments.contains("--check") {
             Self.checkAndExit()
         }
     }
 
     var body: some Scene {
-        WindowGroup("WhatsApp Bridge") {
+        WindowGroup("Reply Radar") {
             RootView()
                 .environment(model)
                 .frame(minWidth: 760, minHeight: 600)

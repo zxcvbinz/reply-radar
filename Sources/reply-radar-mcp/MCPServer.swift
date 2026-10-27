@@ -30,7 +30,7 @@ struct MCPServer {
             result = [
                 "protocolVersion": Self.supportedVersions.contains(requested) ? requested : Self.supportedVersions[0],
                 "capabilities": ["tools": [String: Any]()],
-                "serverInfo": ["name": "whatsapp-local", "version": "0.1.0"],
+                "serverInfo": ["name": "reply-radar", "version": "0.1.0"],
                 "instructions": Self.instructions,
             ]
         case "ping":
@@ -58,7 +58,7 @@ struct MCPServer {
             return ["content": [["type": "text", "text": text]], "isError": false]
         } catch {
             // Il messaggio d'errore non contiene mai testi delle chat.
-            FileHandle.standardError.write(Data("whatsapp-local-mcp: \(name): \(error.localizedDescription)\n".utf8))
+            FileHandle.standardError.write(Data("reply-radar-mcp: \(name): \(error.localizedDescription)\n".utf8))
             return ["content": [["type": "text", "text": error.localizedDescription]], "isError": true]
         }
     }

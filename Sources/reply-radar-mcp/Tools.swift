@@ -58,7 +58,7 @@ enum Tools {
         switch name {
         case "list_chats":
             let kind = args.string("kind").flatMap(ChatKind.init(rawValue:))
-            if kind == .group, !groups { throw ToolError("Groups are disabled in the WhatsApp Bridge privacy settings.") }
+            if kind == .group, !groups { throw ToolError("Groups are disabled in the Reply Radar privacy settings.") }
             let chats = try db.chats(
                 nameContains: args.string("query"), kind: kind, unreadOnly: args.bool("unread_only") ?? false,
                 includeGroups: groups, limit: args.int("limit", default: 30, max: 200)
@@ -142,7 +142,7 @@ enum Tools {
     private static func resolveChat(_ args: Arguments, database db: ChatDatabase, includeGroups: Bool) throws -> ChatSummary {
         if let id = args.int64("chat_id") {
             guard let chat = try db.chat(id: id) else { throw ToolError("No chat with id \(id).") }
-            if chat.kind == .group, !includeGroups { throw ToolError("Groups are disabled in the WhatsApp Bridge privacy settings.") }
+            if chat.kind == .group, !includeGroups { throw ToolError("Groups are disabled in the Reply Radar privacy settings.") }
             return chat
         }
         guard let contact = args.string("contact") else { throw ToolError("Pass chat_id or contact.") }

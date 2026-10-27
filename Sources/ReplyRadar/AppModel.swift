@@ -225,13 +225,13 @@ final class AppModel {
 
     /// Il server MCP sta accanto all'eseguibile dell'app, dentro il bundle.
     var mcpExecutablePath: String {
-        Bundle.main.bundleURL.appending(path: "Contents/MacOS/whatsapp-local-mcp").path
+        Bundle.main.bundleURL.appending(path: "Contents/MacOS/reply-radar-mcp").path
     }
 
     var mcpExecutableExists: Bool { FileManager.default.isExecutableFile(atPath: mcpExecutablePath) }
 
     var integrationCommand: String {
-        "claude mcp add --scope user --transport stdio whatsapp-local -- \"\(mcpExecutablePath)\""
+        "claude mcp add --scope user --transport stdio reply-radar -- \"\(mcpExecutablePath)\""
     }
 
     /// Registrato in Claude Code se compare fra i server MCP di ~/.claude.json.
@@ -240,7 +240,7 @@ final class AppModel {
         guard let data = try? Data(contentsOf: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let servers = json["mcpServers"] as? [String: Any] else { return false }
-        return servers["whatsapp-local"] != nil
+        return servers["reply-radar"] != nil
     }
 
     func copyIntegrationCommand() {

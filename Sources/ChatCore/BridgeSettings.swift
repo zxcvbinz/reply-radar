@@ -1,6 +1,6 @@
 import Foundation
 
-/// Impostazioni condivise fra l'app e il server MCP, in ~/Library/Application Support/WhatsAppBridge/settings.json.
+/// Impostazioni condivise fra l'app e il server MCP, in ~/Library/Application Support/ReplyRadar/settings.json.
 /// Il server MCP non ha un bundle, quindi non può usare UserDefaults dell'app.
 public struct BridgeSettings: Codable, Equatable, Sendable {
     public var databasePath: String?
@@ -30,13 +30,24 @@ public struct BridgeSettings: Codable, Equatable, Sendable {
 
     public static var fileURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/WhatsAppBridge/settings.json")
+            .appending(path: "Library/Application Support/ReplyRadar/settings.json")
     }
 
     public static func load() -> BridgeSettings {
+        migrateLegacyFolder()
         guard let data = try? Data(contentsOf: fileURL),
               let settings = try? JSONDecoder().decode(BridgeSettings.self, from: data) else { return BridgeSettings() }
         return settings
+    }
+
+    /// Prima si chiamava WhatsApp Bridge: sposta le impostazioni dalla vecchia cartella, una volta sola.
+    private static func migrateLegacyFolder() {
+        let fm = FileManager.default
+        let legacy = fm.homeDirectoryForCurrentUser.appending(path: "Library/Application Support/WhatsAppBridge")
+        let current = fileURL.deletingLastPathComponent()
+        guard !fm.fileExists(atPath: current.path), fm.fileExists(atPath: legacy.path) else { return }
+        try? fm.moveItem(at: legacy, to: current)
+        try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
     }
 
     public func save() throws {

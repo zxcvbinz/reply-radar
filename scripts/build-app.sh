@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Compila e impacchetta build/WhatsApp Bridge.app con dentro il server MCP (Contents/MacOS/whatsapp-local-mcp).
+# Compila e impacchetta build/Reply Radar.app con dentro il server MCP (Contents/MacOS/reply-radar-mcp).
 #
 # Variabili:
 #   CONFIG=release|debug   configurazione (predefinita: release)
@@ -21,10 +21,10 @@ fi
 swift build -c "$CONFIG" $ARCH_FLAGS
 BIN="$(swift build -c "$CONFIG" $ARCH_FLAGS --show-bin-path)"
 
-APP="build/WhatsApp Bridge.app"
+APP="build/Reply Radar.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN/WhatsAppBridge" "$BIN/whatsapp-local-mcp" "$APP/Contents/MacOS/"
+cp "$BIN/ReplyRadar" "$BIN/reply-radar-mcp" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 [[ -n "${VERSION:-}" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
@@ -37,14 +37,14 @@ SIGN_OPTS=(--force --sign "$SIGN_ID")
 if [[ "$SIGN_ID" == "Developer ID Application"* ]]; then
     SIGN_OPTS+=(--options runtime --timestamp)
 fi
-codesign $SIGN_OPTS --identifier io.github.zxcvbinz.whatsappbridge.mcp "$APP/Contents/MacOS/whatsapp-local-mcp"
+codesign $SIGN_OPTS --identifier io.github.zxcvbinz.replyradar.mcp "$APP/Contents/MacOS/reply-radar-mcp"
 codesign $SIGN_OPTS "$APP"
 codesign --verify --strict "$APP"
 echo "Pronta: $APP (firmata con: $([[ "$SIGN_ID" == "-" ]] && echo ad-hoc || echo "$SIGN_ID"))"
 
 if [[ "${INSTALL:-0}" == 1 ]]; then
     mkdir -p ~/Applications
-    rm -rf ~/Applications/"WhatsApp Bridge.app"
+    rm -rf ~/Applications/"Reply Radar.app"
     cp -R "$APP" ~/Applications/
-    echo "Installata in ~/Applications/WhatsApp Bridge.app"
+    echo "Installata in ~/Applications/Reply Radar.app"
 fi

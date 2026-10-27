@@ -92,7 +92,7 @@ private struct DiskAccessStep: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 Instruction(number: 1, text: "Apri Impostazioni di Sistema con il pulsante qui sotto.")
-                Instruction(number: 2, text: "Attiva l'interruttore accanto a WhatsApp Bridge. Se non c'è, premi + e scegli l'app.")
+                Instruction(number: 2, text: "Attiva l'interruttore accanto a Reply Radar. Se non c'è, premi + e scegli l'app.")
                 Instruction(number: 3, text: "Torna qui: l'app se ne accorge da sola.")
             }
             .padding(16)
