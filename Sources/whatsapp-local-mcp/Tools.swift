@@ -96,9 +96,11 @@ enum Tools {
             ))
 
         case "get_unread_messages":
+            // Il limite di messaggi per richiesta vale per il totale, non per ogni chat.
+            let maxChats = args.int("max_chats", default: 10, max: 50)
             return try encode(try db.unread(
-                maxChats: args.int("max_chats", default: 10, max: 50),
-                perChat: args.int("per_chat", default: 20, max: maxMessages),
+                maxChats: maxChats,
+                perChat: args.int("per_chat", default: 20, max: max(maxMessages / maxChats, 1)),
                 includeGroups: groups
             ))
 

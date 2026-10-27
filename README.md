@@ -111,6 +111,20 @@ Privacy is the reason the app exists, so these are hard rules:
 
 ## Install
 
+### Download
+
+Get the latest `WhatsApp-Bridge-x.y.z.zip` from [Releases](https://github.com/zxcvbinz/whatsapp-bridge/releases). It's a universal build for Apple Silicon and Intel. Unzip it and move the app to Applications.
+
+Builds that aren't notarized are blocked by Gatekeeper the first time you open them. Allow the app once with:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/WhatsApp Bridge.app"
+```
+
+You can also open it and then confirm in *System Settings › Privacy & Security › Open Anyway*. Each release notes says whether that build is notarized.
+
+### Build from source
+
 ```bash
 git clone https://github.com/zxcvbinz/whatsapp-bridge.git
 cd whatsapp-bridge
@@ -120,6 +134,12 @@ open ~/Applications/"WhatsApp Bridge.app"
 
 `build-app.sh` signs with your first *Apple Development* certificate if you have one, otherwise ad-hoc.
 A stable signature matters: with ad-hoc signing macOS forgets the Full Disk Access permission after every rebuild.
+Run `UNIVERSAL=1 VERSION=1.0.0 ./scripts/build-app.sh` for a universal build with a version number.
+
+### Releasing
+
+Pushing a tag such as `v0.1.0` runs [the release workflow](.github/workflows/release.yml). It builds a universal app and publishes it on GitHub Releases with its SHA-256.
+If the repository has the `MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD` secrets, the app is also signed with Developer ID and notarized.
 
 ### First launch
 
@@ -133,11 +153,11 @@ A three-step guided setup:
 
 ### Connect Claude Code
 
-The dashboard has a *Copy* button for this command:
+*Settings › Claude Code* has a *Copy* button for this command, already filled in with the right path:
 
 ```bash
 claude mcp add --scope user --transport stdio whatsapp-local -- \
-  "$HOME/Applications/WhatsApp Bridge.app/Contents/MacOS/whatsapp-local-mcp"
+  "/Applications/WhatsApp Bridge.app/Contents/MacOS/whatsapp-local-mcp"
 ```
 
 Claude Code starts the server itself; the app doesn't need to be open.
@@ -154,7 +174,7 @@ Open *Settings* (`⌘,`) to:
 - restore dismissed chats
 - rerun the guided setup
 
-Settings are stored in `~/Library/Application Support/WhatsAppBridge/settings.json`, shared by the app and the MCP server. Changes apply immediately.
+Settings are stored in `~/Library/Application Support/WhatsAppBridge/settings.json` (readable only by your user), shared by the app and the MCP server. Changes apply immediately.
 
 ## How it works
 
@@ -204,7 +224,7 @@ This prints only counts and dates, never message content.
 - [ ] Optional full-text index for faster search
 - [ ] Menu bar extra with the number of people waiting for you
 - [ ] English localization
-- [ ] Notarized builds on GitHub Releases
+- [ ] Notarized builds (the release workflow already supports it, it needs a Developer ID certificate)
 
 ## Contributing
 

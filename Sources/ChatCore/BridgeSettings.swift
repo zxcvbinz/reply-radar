@@ -44,6 +44,8 @@ public struct BridgeSettings: Codable, Equatable, Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(self).write(to: Self.fileURL, options: .atomic)
+        // Contiene il percorso del database e gli id delle chat: leggibile solo dall'utente.
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.fileURL.path)
     }
 
     /// Percorso salvato oppure ricerca automatica.

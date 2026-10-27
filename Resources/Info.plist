@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>it.wearepeople.whatsappbridge</string>
+	<string>io.github.zxcvbinz.whatsappbridge</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>it</string>
