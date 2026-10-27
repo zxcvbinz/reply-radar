@@ -18,8 +18,14 @@
 </p>
 
 <p align="center">
-  <img src="docs/dashboard.png" width="760" alt="Dashboard: reply time, share within an hour, people waiting for you, nudges, after-hours messages, weekly trend">
+  <img src="docs/dashboard.png" width="760" alt="Summary tab: typical reply, slowest 10%, people waiting for you, nudges, after-hours messages, weekly trend and who you keep waiting the longest">
 </p>
+
+<p align="center">
+  <img src="docs/people.png" width="760" alt="People tab: sortable table with typical and slowest reply, replies over a day and how long each person has been waiting">
+</p>
+
+<p align="center"><sub>Screenshots taken with <code>--demo-names</code>: contact names are fake, numbers are real.</sub></p>
 
 ---
 
@@ -233,6 +239,7 @@ Issues and pull requests are welcome. Please never attach real message content, 
 ```bash
 swift build                       # build everything
 swift run reply-radar-mcp      # run the MCP server on stdio
+"$HOME/Applications/Reply Radar.app/Contents/MacOS/ReplyRadar" --demo-names   # fake names and hidden texts, for screenshots
 swift scripts/make-icon.swift && scripts/make-icns.sh   # regenerate the icon
 ```
 
