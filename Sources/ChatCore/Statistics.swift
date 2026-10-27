@@ -501,7 +501,7 @@ extension ChatDatabase {
                 date: Date(whatsApp: row["date"]),
                 fromMe: (row["fromMe"] as Int?) == 1,
                 type: type,
-                preview: text ?? "[\(MessageKind.label(type))]",
+                preview: Self.demoNames ? Self.hiddenText : text ?? "[\(MessageKind.label(type))]",
                 length: text?.count ?? 0
             )
             if chats[id] == nil {

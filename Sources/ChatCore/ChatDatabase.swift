@@ -283,7 +283,7 @@ public final class ChatDatabase: Sendable {
             let jid: String? = row["memberJID"] ?? row["fromJID"]
             let candidates: [String?] = [row["memberName"], row["memberFirstName"], jid.flatMap { pushNames[$0] }]
             let name = candidates.compactMap { $0 }.first { !$0.isEmpty }
-            sender = name ?? Self.displayName(partner: nil, jid: jid)
+            sender = Self.demoNames ? Self.fakeName(for: jid ?? "") : name ?? Self.displayName(partner: nil, jid: jid)
         } else {
             sender = chatName
         }
@@ -295,7 +295,7 @@ public final class ChatDatabase: Sendable {
             date: Date(whatsApp: row["date"]),
             fromMe: fromMe,
             sender: sender,
-            text: row["text"],
+            text: Self.demoNames ? Self.hiddenText : row["text"],
             kind: MessageKind.label(type),
             starred: (row["starred"] as Int?) == 1
         )
@@ -308,7 +308,7 @@ public final class ChatDatabase: Sendable {
             name: displayName(partner: row["ZPARTNERNAME"], jid: row["ZCONTACTJID"]),
             kind: kind,
             lastMessageDate: (row["ZLASTMESSAGEDATE"] as Double?).map(Date.init(whatsApp:)),
-            lastMessagePreview: row["ZLASTMESSAGETEXT"],
+            lastMessagePreview: demoNames ? hiddenText : row["ZLASTMESSAGETEXT"],
             unreadCount: (row["ZUNREADCOUNT"] as Int?) ?? 0,
             archived: (row["ZARCHIVED"] as Int?) == 1
         )
@@ -316,9 +316,33 @@ public final class ChatDatabase: Sendable {
 
     /// Nome della rubrica, altrimenti il numero. Gli identificativi `@lid` non sono numeri di telefono.
     static func displayName(partner: String?, jid: String?) -> String {
+        if demoNames { return fakeName(for: jid ?? partner ?? "") }
         if let partner = partner?.trimmingCharacters(in: .whitespacesAndNewlines), !partner.isEmpty { return partner }
         guard let jid, let at = jid.firstIndex(of: "@") else { return "Sconosciuto" }
         return jid.hasSuffix("@s.whatsapp.net") ? "+\(jid[..<at])" : "Contatto sconosciuto"
+    }
+
+    /// `--demo-names`: nomi finti e testi nascosti, per screenshot da pubblicare. Numeri e date restano veri.
+    public static let demoNames = ProcessInfo.processInfo.arguments.contains("--demo-names")
+    static let hiddenText = "[testo nascosto]"
+
+    private static let fakeFirstNames = [
+        "Marco", "Giulia", "Luca", "Sara", "Andrea", "Chiara", "Matteo", "Elena", "Davide", "Francesca",
+        "Paolo", "Martina", "Simone", "Valentina", "Alessio", "Federica", "Stefano", "Laura", "Riccardo",
+        "Anna", "Lorenzo", "Silvia", "Giorgio", "Elisa", "Fabio", "Ilaria", "Nicola", "Marta",
+    ]
+    private static let fakeLastNames = [
+        "Rossi", "Bianchi", "Romano", "Colombo", "Ricci", "Marino", "Greco", "Bruno", "Gallo", "Conti",
+        "De Luca", "Costa", "Giordano", "Rizzo", "Lombardi", "Moretti", "Barbieri", "Fontana", "Santoro",
+        "Mariani", "Rinaldi", "Caruso", "Ferrara", "Galli", "Martini", "Leone", "Longo", "Gentile",
+    ]
+
+    /// Sempre lo stesso nome finto per lo stesso contatto (hashValue cambia a ogni avvio, questo no).
+    static func fakeName(for key: String) -> String {
+        let hash = key.unicodeScalars.reduce(UInt64(1469598103934665603)) { ($0 ^ UInt64($1.value)) &* 1099511628211 }
+        let first = fakeFirstNames[Int(hash % UInt64(fakeFirstNames.count))]
+        let last = fakeLastNames[Int((hash / UInt64(fakeFirstNames.count)) % UInt64(fakeLastNames.count))]
+        return "\(first) \(last)"
     }
 
     static func likePattern(_ text: String) -> String {
