@@ -21,12 +21,6 @@
   <img src="docs/dashboard.png" width="760" alt="Summary tab: typical reply, slowest 10%, people waiting for you, nudges, after-hours messages, weekly trend and who you keep waiting the longest">
 </p>
 
-<p align="center">
-  <img src="docs/people.png" width="760" alt="People tab: sortable table with typical and slowest reply, replies over a day and how long each person has been waiting">
-</p>
-
-<p align="center"><sub>Screenshots taken with <code>--demo-names</code>: contact names are fake, numbers are real.</sub></p>
-
 ---
 
 ## Why
