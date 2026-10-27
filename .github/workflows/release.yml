@@ -1,8 +1,13 @@
-# Pubblica una release quando si fa push di un tag vX.Y.Z:
-#   git tag v0.1.0 && git push origin v0.1.0
+# Release automatica.
 #
-# Senza segreti l'app è firmata ad-hoc: funziona, ma al primo avvio macOS chiede conferma.
-# Con i segreti qui sotto viene firmata con Developer ID e notarizzata da Apple:
+# - Push su main: la versione si calcola dai commit dall'ultimo tag (Conventional Commits):
+#   "feat:" → minore, "fix:"/"perf:" → patch, "tipo!:" o "BREAKING CHANGE" → maggiore.
+#   Se ci sono solo docs/ci/chore/refactor non esce nessuna release.
+#   Per saltare la release di un push, scrivi [skip release] nel messaggio dell'ultimo commit.
+# - Push di un tag vX.Y.Z: rilascia esattamente quella versione.
+# - "Run workflow" da GitHub: forza una release, scegliendo come aumentare la versione.
+#
+# Senza segreti l'app è firmata ad-hoc. Con questi segreti viene firmata con Developer ID e notarizzata:
 #   MACOS_CERTIFICATE           certificato "Developer ID Application" in .p12, codificato in base64
 #   MACOS_CERTIFICATE_PASSWORD  password del .p12
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD   per notarytool (password specifica per app)
@@ -10,13 +15,21 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Come aumentare la versione
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -26,16 +39,43 @@ jobs:
     env:
       HAS_CERT: ${{ secrets.MACOS_CERTIFICATE != '' }}
       HAS_NOTARY: ${{ secrets.APPLE_APP_PASSWORD != '' }}
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Versione dal tag
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Calcola la versione
+        env:
+          BUMP: ${{ inputs.bump || 'auto' }}
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            PREVIOUS=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          else
+            if [[ "$HEAD_MESSAGE" == *"[skip release]"* ]]; then
+              echo "Release saltata: [skip release] nel commit."
+              echo "SKIP=true" >> "$GITHUB_ENV"; exit 0
+            fi
+            PREVIOUS=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+            VERSION=$(./scripts/next-version.sh "$BUMP")
+            if [[ -z "$VERSION" ]]; then
+              echo "Nessuna modifica da rilasciare dall'ultimo tag (${PREVIOUS:-nessuno})."
+              echo "SKIP=true" >> "$GITHUB_ENV"; exit 0
+            fi
+            if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+              echo "Il tag v$VERSION esiste già."
+              echo "SKIP=true" >> "$GITHUB_ENV"; exit 0
+            fi
+          fi
+          echo "Versione $VERSION (precedente: ${PREVIOUS:-nessuna})"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "PREVIOUS=$PREVIOUS" >> "$GITHUB_ENV"
 
       - name: Importa il certificato Developer ID
-        if: env.HAS_CERT == 'true'
+        if: env.SKIP != 'true' && env.HAS_CERT == 'true'
         env:
           CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -54,53 +94,36 @@ jobs:
           echo "SIGN_ID=$IDENTITY" >> "$GITHUB_ENV"
 
       - name: Compila
+        if: env.SKIP != 'true'
         run: |
           [[ -n "${SIGN_ID:-}" ]] || export SIGN_ID=-
           UNIVERSAL=1 BUILD="$GITHUB_RUN_NUMBER" ./scripts/build-app.sh
 
       - name: Notarizza
-        if: env.HAS_CERT == 'true' && env.HAS_NOTARY == 'true'
+        if: env.SKIP != 'true' && env.HAS_CERT == 'true' && env.HAS_NOTARY == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          ditto -c -k --keepParent "build/WhatsApp Bridge.app" "$RUNNER_TEMP/notarize.zip"
+          ditto -c -k --keepParent "build/Reply Radar.app" "$RUNNER_TEMP/notarize.zip"
           xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
             --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
-          xcrun stapler staple "build/WhatsApp Bridge.app"
+          xcrun stapler staple "build/Reply Radar.app"
 
       - name: Impacchetta
+        if: env.SKIP != 'true'
         run: |
-          ZIP="WhatsApp-Bridge-$VERSION.zip"
-          ditto -c -k --keepParent "build/WhatsApp Bridge.app" "$ZIP"
+          ZIP="Reply-Radar-$VERSION.zip"
+          ditto -c -k --keepParent "build/Reply Radar.app" "$ZIP"
           shasum -a 256 "$ZIP" > "$ZIP.sha256"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - name: Pubblica la release
+        if: env.SKIP != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if [[ "$HAS_CERT" == "true" && "$HAS_NOTARY" == "true" ]]; then
-            INSTALL_NOTE="Signed with Developer ID and notarized by Apple: unzip it, move it to Applications and open it."
-          else
-            INSTALL_NOTE=$'This build is **not notarized**. After moving it to Applications, run once:\n\n```bash\nxattr -dr com.apple.quarantine "/Applications/WhatsApp Bridge.app"\n```\n\nor open it and confirm in System Settings › Privacy & Security › Open Anyway. You will need to grant Full Disk Access again after each update.'
-          fi
-          cat > "$RUNNER_TEMP/notes.md" <<NOTES
-          ## Install
-
-          Download \`$ZIP\`, unzip it and move **WhatsApp Bridge** to Applications. Requires macOS 26 or later. Works on Apple Silicon and Intel.
-
-          $INSTALL_NOTE
-
-          SHA-256: \`$(cut -d' ' -f1 "$ZIP.sha256")\`
-
-          NOTES
-          gh release create "$GITHUB_REF_NAME" "$ZIP" "$ZIP.sha256" \
-            --title "WhatsApp Bridge $VERSION" \
-            --notes-file "$RUNNER_TEMP/notes.md" \
-            --generate-notes \
-            --verify-tag
+        run: ./scripts/release-notes.sh > "$RUNNER_TEMP/notes.md" && cat "$RUNNER_TEMP/notes.md" && gh release create "v$VERSION" "$ZIP" "$ZIP.sha256" --target "$GITHUB_SHA" --title "Reply Radar $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
 
       - name: Pulisci il portachiavi
         if: always() && env.HAS_CERT == 'true'
