@@ -7,17 +7,17 @@ let image = NSImage(size: NSSize(width: size, height: size))
 image.lockFocus()
 let context = NSGraphicsContext.current!.cgContext
 
-// Sfondo: squircle della griglia icone macOS (824 pt, margine 100) con ombra leggera.
+// Indaco e viola, lontani dal verde di WhatsApp. Sfondo: squircle della griglia icone macOS (824 pt, margine 100) con ombra leggera.
 let tile = NSRect(x: 100, y: 100, width: 824, height: 824)
 let tilePath = NSBezierPath(roundedRect: tile, xRadius: 185, yRadius: 185)
 context.saveGState()
 context.setShadow(offset: CGSize(width: 0, height: -10), blur: 28, color: NSColor.black.withAlphaComponent(0.28).cgColor)
-NSColor(red: 0.04, green: 0.36, blue: 0.30, alpha: 1).setFill()
+NSColor(red: 0.22, green: 0.16, blue: 0.55, alpha: 1).setFill()
 tilePath.fill()
 context.restoreGState()
 NSGradient(colors: [
-    NSColor(red: 0.13, green: 0.80, blue: 0.55, alpha: 1),
-    NSColor(red: 0.03, green: 0.42, blue: 0.40, alpha: 1),
+    NSColor(red: 0.42, green: 0.45, blue: 1.00, alpha: 1),
+    NSColor(red: 0.36, green: 0.18, blue: 0.75, alpha: 1),
 ])!.draw(in: tilePath, angle: -90)
 
 // Fumetto bianco con la coda in basso a sinistra.
@@ -37,7 +37,7 @@ bubble.fill()
 context.restoreGState()
 
 // Tre barre crescenti: le statistiche.
-let barColor = NSColor(red: 0.05, green: 0.55, blue: 0.45, alpha: 1)
+let barColor = NSColor(red: 0.33, green: 0.25, blue: 0.85, alpha: 1)
 for (index, height) in [120.0, 200.0, 290.0].enumerated() {
     let bar = NSRect(x: 350 + Double(index) * 118, y: 400, width: 84, height: height)
     barColor.withAlphaComponent(0.55 + 0.2 * Double(index)).setFill()
