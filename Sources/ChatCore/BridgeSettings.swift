@@ -8,6 +8,9 @@ public struct BridgeSettings: Codable, Equatable, Sendable {
     /// Se falso, gli strumenti MCP vedono solo le chat singole.
     public var allowGroupsInMCP = true
     public var maxMessagesPerRequest = 100
+    /// Se vero, Claude vede solo le chat in `mcpAllowedChats` (gruppi compresi, se scelti).
+    public var mcpOnlySelectedChats = false
+    public var mcpAllowedChats: Set<Int64> = []
     /// Chat tolte dalle "cose in sospeso": id chat → data dell'ultimo messaggio quando l'hai ignorata.
     /// Se arriva un messaggio nuovo la chat ricompare.
     public var dismissedPending: [String: Double] = [:]
@@ -23,6 +26,8 @@ public struct BridgeSettings: Codable, Equatable, Sendable {
         onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
         allowGroupsInMCP = try c.decodeIfPresent(Bool.self, forKey: .allowGroupsInMCP) ?? true
         maxMessagesPerRequest = try c.decodeIfPresent(Int.self, forKey: .maxMessagesPerRequest) ?? 100
+        mcpOnlySelectedChats = try c.decodeIfPresent(Bool.self, forKey: .mcpOnlySelectedChats) ?? false
+        mcpAllowedChats = try c.decodeIfPresent(Set<Int64>.self, forKey: .mcpAllowedChats) ?? []
         dismissedPending = try c.decodeIfPresent([String: Double].self, forKey: .dismissedPending) ?? [:]
         workHours = try c.decodeIfPresent(WorkHours.self, forKey: .workHours) ?? WorkHours()
         workTimeOnly = try c.decodeIfPresent(Bool.self, forKey: .workTimeOnly) ?? false
@@ -58,6 +63,14 @@ public struct BridgeSettings: Codable, Equatable, Sendable {
         // Contiene il percorso del database e gli id delle chat: leggibile solo dall'utente.
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.fileURL.path)
     }
+
+    /// Chat che Claude può leggere: nil = tutte.
+    public var mcpChatScope: [Int64]? {
+        mcpOnlySelectedChats ? mcpAllowedChats.sorted() : nil
+    }
+
+    /// Con la selezione attiva decidono le chat scelte, gruppi compresi.
+    public var mcpIncludesGroups: Bool { mcpOnlySelectedChats || allowGroupsInMCP }
 
     /// Percorso salvato oppure ricerca automatica.
     public var resolvedDatabasePath: String? {

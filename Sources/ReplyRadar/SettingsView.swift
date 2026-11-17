@@ -65,14 +65,19 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Claude può leggere i gruppi", isOn: $model.settings.allowGroupsInMCP)
+                Toggle("Claude vede solo le chat scelte", isOn: $model.settings.mcpOnlySelectedChats)
+                if model.settings.mcpOnlySelectedChats {
+                    LabeledContent("Chat condivise", value: "\(model.settings.mcpAllowedChats.count)")
+                } else {
+                    Toggle("Claude può leggere i gruppi", isOn: $model.settings.allowGroupsInMCP)
+                }
                 Stepper(value: $model.settings.maxMessagesPerRequest, in: 20...500, step: 20) {
                     LabeledContent("Massimo messaggi per richiesta", value: "\(model.settings.maxMessagesPerRequest)")
                 }
             } header: {
                 Text("Privacy con Claude Code")
             } footer: {
-                Text("Valgono subito, senza riavviare Claude Code. I messaggi non vengono copiati né salvati altrove.")
+                Text("Le chat si scelgono nella scheda Chat. Valgono subito, senza riavviare Claude Code. I messaggi non vengono copiati né salvati altrove.")
             }
 
             Section {

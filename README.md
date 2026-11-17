@@ -34,7 +34,7 @@ It doesn't connect to WhatsApp, doesn't add a linked device and can't send anyth
 
 ## Features
 
-The window has four tabs: **Summary**, **To do**, **People** and **Habits**.
+The window has five tabs: **Summary**, **To do**, **People**, **Habits** and **Chat**.
 
 ### Reply statistics (one-to-one chats)
 
@@ -58,6 +58,11 @@ Every number is compared with the previous period of the same length (7, 30 or 9
 - **Waiting for your reply**: who wrote last and has been waiting, and for how long. Covers the last 12 months whatever the period, grouped into *last week*, *1–4 weeks* and *more than a month*, oldest first.
 - **Waiting for theirs**: you wrote last and got no answer for more than a day.
 - Dismiss a chat with one click. It comes back on its own when a new message arrives.
+
+### Chat: voice notes and what Claude can see
+
+- **Transcribe voice notes on your Mac.** Pick a chat or group, choose the period and *Audio only* if you want, then *Transcribe and copy*: every voice note is transcribed with macOS on-device speech recognition (about half a second each) and the whole conversation is copied as plain text, ready to paste into Claude. Transcripts stay in memory and disappear when you quit.
+- **Choose the chats Claude can read.** Turn on *Claude sees only the checked chats* and tick the people and groups you want to share. Every MCP tool then sees only those chats.
 
 ### People
 
@@ -84,6 +89,7 @@ A separate executable, `reply-radar-mcp`, is bundled in the app and speaks [MCP]
 | `get_reply_stats` | All the statistics above, compared with the previous period |
 | `get_contact_stats` | The relationship with a single contact |
 | `get_pending` | Who is waiting for you and who you are waiting for |
+| `get_transcript` | A whole chat as text, with voice notes transcribed on your Mac |
 
 Then just ask Claude:
 
@@ -101,7 +107,8 @@ Privacy is the reason the app exists, so these are hard rules:
 - **No copies.** The app reads WhatsApp's database directly. It doesn't build its own archive of your messages.
 - **No message content in logs.** Errors are logged without texts or names.
 - **Untrusted content.** Every MCP response tells the agent that message texts are third-party data, never instructions to follow.
-- **You decide what Claude sees.** Group chats can be hidden from the MCP server, and the number of messages per request is capped.
+- **You decide what Claude sees.** Share only the chats you check, or hide group chats, and cap the number of messages per request.
+- **Voice notes are transcribed on your Mac.** Apple's on-device speech recognition: the audio never leaves the computer. The first time, macOS downloads the language model.
 
 ## Requirements
 

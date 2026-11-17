@@ -41,6 +41,8 @@ final class AppModel {
     var selectedContact: ContactRef?
     var overview: Overview?
     var isLoading = false
+    /// Trascrizioni delle note vocali, solo in memoria: chiudendo l'app spariscono.
+    private var transcripts: [Int64: String] = [:]
 
     var showsOnboarding: Bool { !settings.onboardingCompleted || database == nil }
 
@@ -201,6 +203,32 @@ final class AppModel {
         return await Task.detached {
             try? database.contactStats(chatID: chatID, days: days, workHours: settings.workHours, workTimeOnly: settings.workTimeOnly)
         }.value
+    }
+
+    // MARK: - Chat e trascrizioni
+
+    func allChats() async -> [ChatSummary] {
+        guard let database else { return [] }
+        return await Task.detached { (try? database.chats(limit: 1000)) ?? [] }.value
+    }
+
+    func transcriptLines(chatID: Int64, days: Int, audioOnly: Bool) async -> [TranscriptLine] {
+        guard let database else { return [] }
+        let since = Calendar.current.date(byAdding: .day, value: -days, to: .now)
+        var lines = await Task.detached {
+            (try? database.transcriptLines(chatID: chatID, since: since, audioOnly: audioOnly, limit: 3000)) ?? []
+        }.value
+        for index in lines.indices { lines[index].transcript = transcripts[lines[index].id] }
+        return lines
+    }
+
+    func remember(_ lines: [TranscriptLine]) {
+        for line in lines { if let text = line.transcript { transcripts[line.id] = text } }
+    }
+
+    func setClaudeAccess(_ chatID: Int64, _ allowed: Bool) {
+        if allowed { settings.mcpAllowedChats.insert(chatID) } else { settings.mcpAllowedChats.remove(chatID) }
+        persist()
     }
 
     func dismiss(_ chat: PendingChat) async {

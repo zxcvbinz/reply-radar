@@ -7,6 +7,7 @@ enum DashboardTab: String, CaseIterable, Identifiable {
     case todo = "Da fare"
     case people = "Persone"
     case habits = "Abitudini"
+    case chats = "Chat"
 
     var id: Self { self }
 }
@@ -18,12 +19,15 @@ struct DashboardView: View {
     var body: some View {
         @Bindable var model = model
         Group {
-            if let overview = model.overview {
+            if tab == .chats, model.database != nil {
+                ChatsTab()
+            } else if let overview = model.overview {
                 switch tab {
                 case .summary: SummaryTab(overview: overview, tab: $tab)
                 case .todo: TodoTab(overview: overview)
                 case .people: PeopleTab(people: overview.people)
                 case .habits: HabitsTab(overview: overview)
+                case .chats: EmptyView()
                 }
             } else if let error = model.databaseError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -52,7 +56,7 @@ struct DashboardView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .fixedSize()
-                .disabled(tab == .todo)
+                .disabled(tab == .todo || tab == .chats)
                 .help(tab == .todo ? "Le cose da fare guardano sempre gli ultimi 12 mesi." : "Periodo delle statistiche")
             }
         }

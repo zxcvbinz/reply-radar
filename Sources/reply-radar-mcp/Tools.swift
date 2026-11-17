@@ -37,6 +37,13 @@ enum Tools {
                 "chat_id": integer("Latest attachments of a chat."),
                 "limit": integer("Max items (default 20, max 100)."),
             ]),
+            tool("get_transcript", "Full conversation of one chat in chronological order, as plain text, with voice notes transcribed on this Mac (on-device speech recognition, nothing leaves the computer). Use it when the user asks what someone said in their audio messages. Transcription takes about half a second per voice note.", [
+                "chat_id": integer("Chat id from list_chats."),
+                "contact": string("Contact or group name, used when chat_id is not known."),
+                "since": string("Only messages from this date, YYYY-MM-DD or ISO 8601. Default: last 30 days."),
+                "audio_only": boolean("Only voice notes, without text messages."),
+                "limit": integer("Max messages, most recent kept (default and max: the privacy limit set in Reply Radar)."),
+            ]),
             tool("get_reply_stats", "How the user replies in one-to-one chats, compared with the previous period of the same length: median reply time, share within an hour, who starts conversations, nudges, messages after work hours, voice notes, trend over the period (daily up to 31 days, otherwise weekly), 90th percentile reply time, reply speed by hour, per-person slowest replies and open waits, unbalanced relationships, contacts going quiet.", [
                 "days": integer("Period in days (default 30, max 365)."),
             ]),
@@ -52,7 +59,9 @@ enum Tools {
     }
 
     static func run(_ name: String, arguments args: Arguments, database db: ChatDatabase, settings: BridgeSettings) throws -> String {
-        let groups = settings.allowGroupsInMCP
+        let groups = settings.mcpIncludesGroups
+        // Con la selezione attiva Claude vede solo le chat scelte nell'app.
+        let scope = settings.mcpChatScope
         let maxMessages = max(settings.maxMessagesPerRequest, 1)
 
         switch name {
@@ -61,7 +70,7 @@ enum Tools {
             if kind == .group, !groups { throw ToolError("Groups are disabled in the Reply Radar privacy settings.") }
             let chats = try db.chats(
                 nameContains: args.string("query"), kind: kind, unreadOnly: args.bool("unread_only") ?? false,
-                includeGroups: groups, limit: args.int("limit", default: 30, max: 200)
+                includeGroups: groups, onlyChatIDs: scope, limit: args.int("limit", default: 30, max: 200)
             )
             return try encode(chats)
 
@@ -77,11 +86,12 @@ enum Tools {
                 throw ToolError("Pass at least one of: query, chat_id, contact, since.")
             }
             filter.includeGroups = groups
+            filter.onlyChatIDs = scope
             filter.limit = args.int("limit", default: 30, max: maxMessages)
             return try encode(try db.messages(filter))
 
         case "get_chat_history":
-            let chat = try resolveChat(args, database: db, includeGroups: groups)
+            let chat = try resolveChat(args, database: db, settings: settings)
             var filter = ChatDatabase.MessageFilter()
             filter.chatID = chat.id
             filter.beforeMessageID = args.int64("before_message_id")
@@ -101,14 +111,14 @@ enum Tools {
             return try encode(try db.unread(
                 maxChats: maxChats,
                 perChat: args.int("per_chat", default: 20, max: max(maxMessages / maxChats, 1)),
-                includeGroups: groups
+                includeGroups: groups, onlyChatIDs: scope
             ))
 
         case "get_media_info":
             let messageID = args.int64("message_id")
             let chatID = args.int64("chat_id")
             guard messageID != nil || chatID != nil else { throw ToolError("Pass message_id or chat_id.") }
-            return try encode(try db.media(messageID: messageID, chatID: chatID, includeGroups: groups, limit: args.int("limit", default: 20, max: 100)))
+            return try encode(try db.media(messageID: messageID, chatID: chatID, includeGroups: groups, onlyChatIDs: scope, limit: args.int("limit", default: 20, max: 100)))
 
         case "get_reply_stats":
             let overview = try db.overview(
@@ -117,12 +127,13 @@ enum Tools {
             )
             return try encode(Stats(
                 days: overview.days, workTimeOnly: overview.workTimeOnly, current: overview.current, previous: overview.previous,
-                trend: overview.trend, trendIsDaily: overview.trendIsDaily, byHour: overview.byHour, people: Array(overview.people.prefix(25)),
-                unbalanced: overview.unbalanced, fading: overview.fading
+                trend: overview.trend, trendIsDaily: overview.trendIsDaily, byHour: overview.byHour,
+                people: Array(allowed(overview.people, scope).prefix(25)),
+                unbalanced: allowed(overview.unbalanced, scope), fading: allowed(overview.fading, scope)
             ))
 
         case "get_contact_stats":
-            let chat = try resolveChat(args, database: db, includeGroups: groups)
+            let chat = try resolveChat(args, database: db, settings: settings)
             guard let stats = try db.contactStats(
                 chatID: chat.id, days: args.int("days", default: 90, max: 3650),
                 workHours: settings.workHours, workTimeOnly: settings.workTimeOnly
@@ -131,22 +142,54 @@ enum Tools {
 
         case "get_pending":
             let overview = try db.overview(days: args.int("days", default: 30, max: 365), dismissed: settings.dismissedPending)
-            return try encode(Pending(waitingOnMe: overview.waitingOnMe, waitingOnThem: overview.waitingOnThem))
+            return try encode(Pending(waitingOnMe: allowed(overview.waitingOnMe, scope), waitingOnThem: allowed(overview.waitingOnThem, scope)))
+
+        case "get_transcript":
+            let chat = try resolveChat(args, database: db, settings: settings)
+            let since = try args.date("since") ?? Calendar.current.date(byAdding: .day, value: -30, to: .now)
+            let lines = try db.transcriptLines(
+                chatID: chat.id, since: since, audioOnly: args.bool("audio_only") ?? false,
+                limit: args.int("limit", default: maxMessages, max: maxMessages)
+            )
+            let filled = blocking { await VoiceTranscriber.fill(lines) }
+            return try encode(VoiceTranscriber.plainText(chatName: chat.name, lines: filled))
 
         default:
             throw ToolError("Unknown tool: \(name)")
         }
     }
 
+    /// Nelle statistiche i numeri complessivi restano, ma i nomi delle chat non scelte spariscono.
+    private static func allowed<T: Identifiable>(_ items: [T], _ scope: [Int64]?) -> [T] where T.ID == Int64 {
+        guard let scope else { return items }
+        let ids = Set(scope)
+        return items.filter { ids.contains($0.id) }
+    }
+
+    /// Il server legge una richiesta alla volta: aspettare qui un lavoro asincrono non blocca nient'altro.
+    private static func blocking<T: Sendable>(_ work: @escaping @Sendable () async -> T) -> T {
+        let done = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var result: T?
+        Task {
+            result = await work()
+            done.signal()
+        }
+        done.wait()
+        return result!
+    }
+
     /// Per nome: se più chat corrispondono restituisce l'elenco, così l'agente sceglie l'id giusto.
-    private static func resolveChat(_ args: Arguments, database db: ChatDatabase, includeGroups: Bool) throws -> ChatSummary {
+    private static func resolveChat(_ args: Arguments, database db: ChatDatabase, settings: BridgeSettings) throws -> ChatSummary {
+        let includeGroups = settings.mcpIncludesGroups
+        let scope = settings.mcpChatScope
         if let id = args.int64("chat_id") {
             guard let chat = try db.chat(id: id) else { throw ToolError("No chat with id \(id).") }
+            if let scope, !scope.contains(id) { throw ToolError("The user has not shared this chat with Claude in Reply Radar.") }
             if chat.kind == .group, !includeGroups { throw ToolError("Groups are disabled in the Reply Radar privacy settings.") }
             return chat
         }
         guard let contact = args.string("contact") else { throw ToolError("Pass chat_id or contact.") }
-        let matches = try db.chats(nameContains: contact, includeGroups: includeGroups, limit: 10)
+        let matches = try db.chats(nameContains: contact, includeGroups: includeGroups, onlyChatIDs: scope, limit: 10)
         if let exact = matches.first(where: { $0.name.localizedCaseInsensitiveCompare(contact) == .orderedSame }) { return exact }
         switch matches.count {
         case 0: throw ToolError("No chat matches \"\(contact)\". Use list_chats to find it.")

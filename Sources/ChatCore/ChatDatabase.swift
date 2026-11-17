@@ -98,8 +98,9 @@ public final class ChatDatabase: Sendable {
 
     // MARK: - Chat
 
-    public func chats(nameContains query: String? = nil, kind: ChatKind? = nil, unreadOnly: Bool = false, includeGroups: Bool = true, limit: Int = 30) throws -> [ChatSummary] {
+    public func chats(nameContains query: String? = nil, kind: ChatKind? = nil, unreadOnly: Bool = false, includeGroups: Bool = true, onlyChatIDs: [Int64]? = nil, limit: Int = 30) throws -> [ChatSummary] {
         var conditions = ["ZSESSIONTYPE IN (0, 1)", "COALESCE(ZREMOVED, 0) = 0", "COALESCE(ZHIDDEN, 0) = 0"]
+        if let onlyChatIDs { conditions.append("Z_PK IN (\(Self.idList(onlyChatIDs)))") }
         var arguments: [(any DatabaseValueConvertible)?] = []
         if !includeGroups || kind == .direct { conditions.append("ZSESSIONTYPE = 0") }
         if kind == .group { conditions.append("ZSESSIONTYPE = 1") }
@@ -139,6 +140,9 @@ public final class ChatDatabase: Sendable {
         /// Messaggi più vecchi di questo (paginazione all'indietro).
         public var beforeMessageID: Int64?
         public var includeGroups = true
+        /// nil = tutte le chat.
+        public var onlyChatIDs: [Int64]?
+        public var audioOnly = false
         public var limit = 50
 
         public init() {}
@@ -156,6 +160,8 @@ public final class ChatDatabase: Sendable {
             conditions.append("m.ZCHATSESSION = ?")
             arguments.append(chatID)
         }
+        if let ids = filter.onlyChatIDs { conditions.append("m.ZCHATSESSION IN (\(Self.idList(ids)))") }
+        if filter.audioOnly { conditions.append("m.ZMESSAGETYPE = 3") }
         if let name = filter.chatName, !name.isEmpty {
             conditions.append("s.ZPARTNERNAME LIKE ? ESCAPE '\\'")
             arguments.append(Self.likePattern(name))
@@ -196,8 +202,8 @@ public final class ChatDatabase: Sendable {
     }
 
     /// Chat con messaggi non letti e gli ultimi messaggi ricevuti in ognuna.
-    public func unread(maxChats: Int, perChat: Int, includeGroups: Bool) throws -> [UnreadChat] {
-        try chats(unreadOnly: true, includeGroups: includeGroups, limit: maxChats).map { chat in
+    public func unread(maxChats: Int, perChat: Int, includeGroups: Bool, onlyChatIDs: [Int64]? = nil) throws -> [UnreadChat] {
+        try chats(unreadOnly: true, includeGroups: includeGroups, onlyChatIDs: onlyChatIDs, limit: maxChats).map { chat in
             // -1 = segnata come da leggere a mano: mostriamo qualche messaggio di contesto.
             let count = chat.unreadCount > 0 ? min(chat.unreadCount, perChat) : min(5, perChat)
             var filter = MessageFilter()
@@ -211,9 +217,11 @@ public final class ChatDatabase: Sendable {
 
     // MARK: - Allegati
 
-    public func media(messageID: Int64? = nil, chatID: Int64? = nil, includeGroups: Bool = true, limit: Int = 20) throws -> [MediaInfo] {
+    public func media(messageID: Int64? = nil, messageIDs: [Int64]? = nil, chatID: Int64? = nil, includeGroups: Bool = true, onlyChatIDs: [Int64]? = nil, limit: Int = 20) throws -> [MediaInfo] {
         var conditions = [Self.baseConditions(includeGroups: includeGroups), "m.ZMESSAGETYPE IN (1, 2, 3, 4, 5, 8, 11, 15)"]
         var arguments: [(any DatabaseValueConvertible)?] = []
+        if let onlyChatIDs { conditions.append("m.ZCHATSESSION IN (\(Self.idList(onlyChatIDs)))") }
+        if let messageIDs { conditions.append("m.Z_PK IN (\(Self.idList(messageIDs)))") }
         if let messageID {
             conditions.append("m.Z_PK = ?")
             arguments.append(messageID)
@@ -295,7 +303,7 @@ public final class ChatDatabase: Sendable {
             date: Date(whatsApp: row["date"]),
             fromMe: fromMe,
             sender: sender,
-            text: Self.demoNames ? Self.hiddenText : row["text"],
+            text: Self.demoNames ? Self.hiddenText : row["text"] as String?,
             kind: MessageKind.label(type),
             starred: (row["starred"] as Int?) == 1
         )
@@ -307,8 +315,9 @@ public final class ChatDatabase: Sendable {
             id: row["Z_PK"],
             name: displayName(partner: row["ZPARTNERNAME"], jid: row["ZCONTACTJID"]),
             kind: kind,
-            lastMessageDate: (row["ZLASTMESSAGEDATE"] as Double?).map(Date.init(whatsApp:)),
-            lastMessagePreview: demoNames ? hiddenText : row["ZLASTMESSAGETEXT"],
+            // Le chat fissate in alto hanno una data finta di migliaia di anni nel futuro.
+            lastMessageDate: (row["ZLASTMESSAGEDATE"] as Double?).map(Date.init(whatsApp:)).flatMap { $0 < .now.addingTimeInterval(86400) ? $0 : nil },
+            lastMessagePreview: demoNames ? hiddenText : row["ZLASTMESSAGETEXT"] as String?,
             unreadCount: (row["ZUNREADCOUNT"] as Int?) ?? 0,
             archived: (row["ZARCHIVED"] as Int?) == 1
         )
@@ -343,6 +352,11 @@ public final class ChatDatabase: Sendable {
         let first = fakeFirstNames[Int(hash % UInt64(fakeFirstNames.count))]
         let last = fakeLastNames[Int((hash / UInt64(fakeFirstNames.count)) % UInt64(fakeLastNames.count))]
         return "\(first) \(last)"
+    }
+
+    /// Gli id sono interi: inserirli nel SQL non apre a injection. Lista vuota = nessuna chat.
+    static func idList(_ ids: [Int64]) -> String {
+        ids.isEmpty ? "NULL" : ids.map(String.init).joined(separator: ",")
     }
 
     static func likePattern(_ text: String) -> String {
